@@ -6,6 +6,7 @@ import uvicorn
 # from src.services.qa_service import QAService
 from dotenv import load_dotenv
 from src.controllers.document_controller import router as document_router
+from src.controllers.chat_controller import router as chat_router
 
 load_dotenv()
 
@@ -26,6 +27,7 @@ app.add_middleware(
 # qa_service = QAService()
 
 app.include_router(document_router, prefix="/process")
+app.include_router(chat_router, prefix="/chat")
 
 @app.get("/")
 async def root():
@@ -33,19 +35,6 @@ async def root():
         "status": "healthy",
         "message": "DSA RAG API is running"
     }
-
-# @app.post("/ask")
-# async def ask_question(request: QuestionRequest):
-#     """
-#     Ask a question and get a streaming response based on the processed documents.
-#     """
-#     try:
-#         return EventSourceResponse(
-#             qa_service.get_streaming_response(request.question),
-#             media_type="text/event-stream"
-#         )
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
 async def health_check():

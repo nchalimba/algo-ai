@@ -9,23 +9,12 @@ from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.document_loaders import WebBaseLoader
 
 from src.config.config import app_config, LLMProvider
+from src.services.vector_store import VectorStore
 
 class DocumentProcessor:
     def __init__(self):
         client = DataAPIClient()
-        self.db = client.get_database(
-            app_config.vector_db.api_endpoint,
-            token=app_config.vector_db.application_token
-        )
-
-        self.collection: Collection
-        self.collection = self.db.get_collection(app_config.vector_db.collection_name)
-        if (self.collection is None):
-            self.collection = self.db.create_collection(
-                app_config.vector_db.collection_name,
-                dimension=3,
-                metric=VectorMetric.COSINE,
-            )
+        self.vector_store = VectorStore()
         
         # Initialize embedding model
         self.embedding_model = self._get_embedding_model()
@@ -41,21 +30,21 @@ class DocumentProcessor:
         """
         return hashlib.sha256(input_data.encode('utf-8')).hexdigest()
 
-    def process_text(self, text: str, admin_input: str):
+    def process_text(self, text: str, title: str):
         """
         Process raw text: delete existing embeddings, generate new embeddings, and insert them.
         """
-        source_key = self.generate_source_key(admin_input)
-        self._delete_existing_embeddings(source_key)
+        source_key = self.generate_source_key(title)
+        self.vector_store.delete_embeddings(source_key)
         chunks = self.text_splitter.split_text(text)
         embeddings = self.embedding_model.embed_documents(chunks)
-        self._insert_embeddings(chunks, embeddings, source_key, admin_input)
+        self.vector_store.insert_embeddings(chunks, embeddings, source_key, title, "text")
 
-    def process_pdf(self, file_bytes: bytes, admin_input: str = None):
+    def process_pdf(self, file_bytes: bytes, title: str = None):
         """
         Process a PDF file: extract text, chunk, delete old embeddings, create new embeddings, and insert.
         """
-        source_key = self.generate_source_key(admin_input)
+        source_key = self.generate_source_key(title)
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             temp_file.write(file_bytes)
             temp_file_path = temp_file.name  # Get the file path of the temporary file
@@ -64,7 +53,7 @@ class DocumentProcessor:
         text = " ".join([doc.page_content for doc in loader.load()])
         
         # Process the text after extraction
-        self.process_text_with_source_key(text, source_key, admin_input)
+        self.process_text_with_source_key(text, source_key, title, "pdf")
 
     def process_urls(self, urls: list):
         """
@@ -74,16 +63,16 @@ class DocumentProcessor:
             source_key = self.generate_source_key(url)
             loader = WebBaseLoader(url)
             text = " ".join([doc.page_content for doc in loader.load()])
-            self.process_text_with_source_key(text, source_key, url)
+            self.process_text_with_source_key(text, source_key, url, "url")
 
-    def process_text_with_source_key(self, text: str, source_key: str, source_label: str):
+    def process_text_with_source_key(self, text: str, source_key: str, source_label: str, type: str):
         """
         Process text with a predefined source key and label.
         """
-        self._delete_existing_embeddings(source_key)
+        self.vector_store.delete_embeddings(source_key)
         chunks = self.text_splitter.split_text(text)
         embeddings = self.embedding_model.embed_documents(chunks)
-        self._insert_embeddings(chunks, embeddings, source_key, source_label)
+        self.vector_store.insert_embeddings(chunks, embeddings, source_key, source_label, type)
     
     def _get_embedding_model(self):
         if app_config.model.llm_provider == LLMProvider.OPENAI:
@@ -96,25 +85,4 @@ class DocumentProcessor:
                 cohere_api_key=app_config.model.api_key,
                 model=app_config.model.embedding_model
             )
-
-    def _delete_existing_embeddings(self, source_key: str):
-        """
-        Delete existing embeddings in the vector database for a specific source ID.
-        """
-        self.collection.delete_many({"source_key": source_key})
-
-    def _insert_embeddings(self, chunks, embeddings, source_key, source_label):
-        """
-        Insert new embeddings into the vector database with source metadata.
-        """
-        documents = [
-            {
-                "text": chunk,
-                "$vector": embedding,
-                "source_key": source_key,
-                "source_label": source_label
-            }
-            for chunk, embedding in zip(chunks, embeddings)
-        ]
-        self.collection.insert_many(documents)
      

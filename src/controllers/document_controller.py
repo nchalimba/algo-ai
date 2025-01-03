@@ -6,7 +6,6 @@ from src.models.request_models import TextRequest, URLsRequest
 
 router = APIRouter()
 
-# Dependency Injection: Use FastAPI's dependency injection to provide DocumentProcessor instance
 def get_document_processor() -> DocumentProcessor:
     return DocumentProcessor()
 
