@@ -1,97 +1,29 @@
 from langchain_cohere import ChatCohere
 from langchain_openai import OpenAI
-from langchain.chains import create_history_aware_retriever
-from langchain.chains import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_cohere import CohereEmbeddings
+from langchain_community.embeddings import OpenAIEmbeddings
+from langgraph.graph import START, StateGraph
+from langchain import hub
+from langchain_core.documents import Document
+from typing_extensions import List, TypedDict
+
+from src.services.vector_store import VectorStore
 from src.config.config import LLMProvider, app_config
-from src.services.document_processor import DocumentProcessor
-from src.models.request_models import QuestionRequest
-import traceback
-from fastapi import HTTPException
 
-# Custom prompt templates
-CUSTOM_PROMPT_TEMPLATE = """
-You are a friendly virtual assistant called RagBot that serves as an example for a chatbot with retrieval augmented generation.
+class State(TypedDict):
+    question: str
+    context: List[Document]
+    answer: str
 
-Always be polite.
-Use simple language.
-
-If you cannot answer the question from the context, just say so and do not answer it at all.
-Do not make up answers but rather ask for clarification.
-
-Context: {context}
-"""
-
-CONTEXTUALIZE_SYSTEM_PROMPT = """
-Given a chat history and the latest user question
-which might reference context in the chat history, formulate a standalone question
-which can be understood without the chat history. Do NOT answer the question,
-just reformulate it if needed and otherwise return it as is.
-"""
 
 class ChatService:
-    def __init__(self, temperature: float = 0.01, k: int = 6):
-        self.client = self.get_llm()
-        self.temperature = temperature
-        self.k = k
-        self.document_processor = DocumentProcessor()
-        self._retrieval_chain = self._build_retrieval_chain()
+    def __init__(self):
+        self.vector_store = VectorStore()
+        self.prompt = hub.pull("rlm/rag-prompt")
+        self.llm = self._get_llm()
+        self.embedding_model = self._get_embedding_model()
 
-    def _build_retrieval_chain(self):
-        # Create the retrieval chain using the custom prompts
-        contextualize_prompt = ChatPromptTemplate(
-            [
-                ("system", CONTEXTUALIZE_SYSTEM_PROMPT),
-                MessagesPlaceholder("chat_history"),
-                ("human", "{input}"),
-            ]
-        )
-
-        history_aware_retriever = create_history_aware_retriever(
-            self.client,
-            self.document_processor.collection.as_retriever(k=self.k),
-            contextualize_prompt
-        )
-
-        main_prompt = ChatPromptTemplate(
-            [
-                ("system", CUSTOM_PROMPT_TEMPLATE),
-                MessagesPlaceholder("chat_history"),
-                ("human", "{input}"),
-            ]
-        )
-
-        return create_retrieval_chain(
-            history_aware_retriever,
-            create_stuff_documents_chain(self.client, main_prompt)
-        )
-
-    def ask_question(self, question: str, history: list[dict[str, any]]):
-        try:
-            memory = self._build_history(history)
-            result = self._retrieval_chain.invoke({
-                "input": question,
-                "chat_history": memory
-            })
-            return {
-                "question": question,
-                "answer": result['answer'],
-                "context": result['context']
-            }
-        except Exception as e:
-            traceback.print_exc()
-            raise HTTPException(status_code=500, detail=f"Error processing question: {str(e)}")
-
-    def _build_history(self, custom_memory: list[dict[str, any]]) -> list[BaseMessage]:
-        history = []
-        for elem in custom_memory:
-            history.append(HumanMessage(elem["question"]))
-            history.append(AIMessage(elem["answer"]))
-        return history
-
-    def get_llm(self):
+    def _get_llm(self):
         # LLM initialization based on the provider (Cohere or OpenAI)
         if app_config.model.llm_provider == LLMProvider.OPENAI:
             return OpenAI(
@@ -103,3 +35,48 @@ class ChatService:
                 cohere_api_key=app_config.model.api_key,
                 model=app_config.model.llm_model
             )
+        
+    def _get_embedding_model(self):
+        # Embedding model initialization based on the provider (Cohere or OpenAI)
+        if app_config.model.llm_provider == LLMProvider.OPENAI:
+            return OpenAIEmbeddings(
+                api_key=app_config.model.api_key,
+                model=app_config.model.embedding_model
+            )
+        else:
+            return CohereEmbeddings(
+                cohere_api_key=app_config.model.api_key,
+                model=app_config.model.embedding_model
+            )
+
+    def retrieve(self, state: State):
+        embedding = self.embedding_model.embed_query(state["question"])
+        # TODO -> generally: improve structure
+        # TODO: -> e.g. with dependency injection (vector strore and embedding model get init twice)
+        # TODO: include service
+
+        rows = self.vector_store.similarity_search(embedding, limit=10)
+        context: List[Document] = []
+        for row in rows:
+            document = Document(
+                page_content=row["text"],
+                metadata={
+                    "source_key": row["source_key"],
+                    "source_label": row["source_label"]
+                }
+            )
+            context.append(document)
+        return {"context": context}
+    
+    def generate(self, state: State):
+        docs_content = "\n\n".join(doc.page_content for doc in state["context"])
+        messages = self.prompt.invoke({"question": state["question"], "context": docs_content})
+        response = self.llm.invoke(messages)
+        return {"answer": response.content}
+    
+    def ask_question(self, question: str):
+        graph_builder = StateGraph(State).add_sequence([self.retrieve, self.generate])
+        graph_builder.add_edge(START, "retrieve")
+        graph = graph_builder.compile()
+        response = graph.invoke({"question": question})
+        return response

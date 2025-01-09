@@ -1,6 +1,6 @@
 import traceback
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
-from src.services.chat_service_2 import ChatService
+from fastapi import APIRouter, Depends, HTTPException
+from src.services.chat_service import ChatService
 from src.models.request_models import QuestionRequest
 
 router = APIRouter()

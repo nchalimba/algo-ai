@@ -43,5 +43,9 @@ class VectorStore:
         ]
         self.collection.insert_many(documents)
 
-    def similarity_search(self, query_embedding, k=5):
-        return self.collection.query_vector(query_embedding, k=k)
+    def similarity_search(self, embedding, limit=5):
+        return self.collection.find(
+            {},
+            sort={"$vector": embedding},
+            limit=limit,
+            include_similarity=True)
