@@ -2,15 +2,14 @@ from langchain_cohere import ChatCohere
 from langchain_openai import OpenAI
 from langchain_cohere import CohereEmbeddings
 from langchain_community.embeddings import OpenAIEmbeddings
-from langgraph.graph import START, END, StateGraph, MessagesState
+from langgraph.graph import END, StateGraph, MessagesState
 from langchain import hub
 from langchain_core.documents import Document
 from langchain_core.tools import tool
-from typing_extensions import List, TypedDict
 from langchain_core.messages import SystemMessage
 from langgraph.prebuilt import ToolNode, tools_condition
-from langgraph.checkpoint.memory import MemorySaver
-
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from src.database import get_db_connection
 
 from src.services.vector_store import VectorStore
 from src.config.config import LLMProvider, app_config
@@ -93,15 +92,7 @@ def generate(state: MessagesState):
 
     # Format into prompt
     docs_content = "\n\n".join(doc.content for doc in tool_messages)
-    system_message_content = (
-        "You are an assistant for question-answering tasks. "
-        "Use the following pieces of retrieved context to answer "
-        "the question. If you don't know the answer, say that you "
-        "don't know. Use three sentences maximum and keep the "
-        "answer concise."
-        "\n\n"
-        f"{docs_content}"
-    )
+    system_message_content = app_config.model.system_prompt.format(docs_content=docs_content)
     conversation_messages = [
         message
         for message in state["messages"]
@@ -114,11 +105,8 @@ def generate(state: MessagesState):
     response = llm.invoke(prompt)
     return {"messages": [response]}
 
-# Ask Question Function
-memory = MemorySaver()
-config = {"configurable": {"thread_id": "abc123"}}
-def ask_question(question: str):
-    # Specify an ID for the thread
+async def ask_question(question: str, thread_id: str):
+    config = {"configurable": {"thread_id": thread_id}}
 
     graph_builder = StateGraph(MessagesState)
     graph_builder.add_node(query_or_respond)
@@ -134,19 +122,14 @@ def ask_question(question: str):
     graph_builder.add_edge("tools", "generate")
     graph_builder.add_edge("generate", END)
 
-    graph = graph_builder.compile(checkpointer=memory)
-    messages = []
-    for message, metadata in graph.stream(
-        {"messages": [{"role": "user", "content": question}]},
-        stream_mode="messages",
-        config=config,
-    ):
-        print("###")
-        yield message.content
-        print(message.content, end="|")
-        # messages.append(step["messages"][-1].content)
-        # step["messages"][-1].pretty_print()
 
-    print("###########")
-    print(messages)
-    # return "Hi"
+    async with get_db_connection() as pool:
+        checkpointer = AsyncPostgresSaver(pool)
+        await checkpointer.setup()
+        graph = graph_builder.compile(checkpointer=checkpointer)
+        async for message, metadata in graph.astream(
+            {"messages": [{"role": "user", "content": question}]},
+            stream_mode="messages",
+            config=config,
+        ):
+            yield message.content

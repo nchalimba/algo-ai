@@ -1,33 +1,31 @@
 import traceback
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from src.services.chat_service import ask_question as ask
 from src.models.request_models import QuestionRequest
-import asyncio
 
 router = APIRouter()
 
-async def stream_graph_response(question: str):
+async def stream_graph_response(question: str, thread_id: str):
     """
     Async generator to stream graph responses.
     """
     try:
         # Use the ask function to yield responses
-        for response in ask(question):
+        async for response in ask(question, thread_id):
             yield response
     except Exception as e:
         traceback.print_exc()
         yield f"Error: {str(e)}"
 
 @router.post("/ask")
-async def ask_question(request: QuestionRequest):
+async def ask_question(request: Request, request_body: QuestionRequest):
     """
     Ask a question and stream the response to the user.
     """
-    #TODO: fetch user id
     try:
         return StreamingResponse(
-            stream_graph_response(request.question),
+            stream_graph_response(request_body.question, request.state.user_id),
             media_type="text/plain"  # Adjust media type as needed
         )
     except Exception as e:
@@ -36,8 +34,6 @@ async def ask_question(request: QuestionRequest):
 
 '''
 TODOs:
-- set up postgres db (cockroachdb) with secrets etc
-- use langgraph checkpoint postgres lib for persistence (thread = user)
 - create endpoint for reading messages by user id
 - create endpoint for deleting messages by user id
 - create endpoint to ping vector store (to prevent hibernation)
