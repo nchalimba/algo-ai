@@ -54,6 +54,7 @@ class Config(BaseModel):
     info: InfoConfig = InfoConfig()
     chunk_size: int = 512
     chunk_overlap: int = 20
-    port: int = os.getenv("PORT", 8000)
+    port: int = int(os.getenv("PORT", 1000))
+
 
 app_config = Config()
