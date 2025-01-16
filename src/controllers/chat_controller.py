@@ -31,22 +31,3 @@ async def ask_question(request: Request, request_body: QuestionRequest):
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
-
-'''
-TODOs:
-- create endpoint for reading messages by user id
-- create endpoint for deleting messages by user id
-- create endpoint to ping vector store (to prevent hibernation)
-- secure following endpoints with some auth token:
-    - process text
-    - process pdf
-    - process urls
-    - ping vector store?
-- deploy this to render?
-- create cronjob that calls ping vector store
-- proceed with frontend (vercel ai sdk)
-- future: maybe use a free secret manager
-- watch out: the more components you have, the more difficult it is to deploy locally
-- maybe create docker compose for llm, embedding model, vector store, postgres
-
-'''
