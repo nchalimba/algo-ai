@@ -25,7 +25,13 @@ class VectorStore:
         Delete existing embeddings in the vector database for a specific source ID.
         """
         self.collection.delete_many({"source_key": source_key})
-
+    
+    def ping(self):
+        """
+        Ping the vector database to verify connectivity.
+        """
+        self.collection.find_one()
+    
     def insert_embeddings(self, chunks, embeddings, source_key, source_label, type):
         """
         Insert new embeddings into the vector database with source metadata.
@@ -43,5 +49,9 @@ class VectorStore:
         ]
         self.collection.insert_many(documents)
 
-    def similarity_search(self, query_embedding, k=5):
-        return self.collection.query_vector(query_embedding, k=k)
+    def similarity_search(self, embedding, limit=5):
+        return self.collection.find(
+            {},
+            sort={"$vector": embedding},
+            limit=limit,
+            include_similarity=True)

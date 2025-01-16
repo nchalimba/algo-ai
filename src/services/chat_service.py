@@ -1,105 +1,135 @@
 from langchain_cohere import ChatCohere
 from langchain_openai import OpenAI
-from langchain.chains import create_history_aware_retriever
-from langchain.chains import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_cohere import CohereEmbeddings
+from langchain_community.embeddings import OpenAIEmbeddings
+from langgraph.graph import END, StateGraph, MessagesState
+from langchain import hub
+from langchain_core.documents import Document
+from langchain_core.tools import tool
+from langchain_core.messages import SystemMessage
+from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from src.database import get_db_connection
+
+from src.services.vector_store import VectorStore
 from src.config.config import LLMProvider, app_config
-from src.services.document_processor import DocumentProcessor
-from src.models.request_models import QuestionRequest
-import traceback
-from fastapi import HTTPException
 
-# Custom prompt templates
-CUSTOM_PROMPT_TEMPLATE = """
-You are a friendly virtual assistant called RagBot that serves as an example for a chatbot with retrieval augmented generation.
+# Shared Resources
+vector_store = VectorStore()
+prompt = hub.pull("rlm/rag-prompt")
 
-Always be polite.
-Use simple language.
-
-If you cannot answer the question from the context, just say so and do not answer it at all.
-Do not make up answers but rather ask for clarification.
-
-Context: {context}
-"""
-
-CONTEXTUALIZE_SYSTEM_PROMPT = """
-Given a chat history and the latest user question
-which might reference context in the chat history, formulate a standalone question
-which can be understood without the chat history. Do NOT answer the question,
-just reformulate it if needed and otherwise return it as is.
-"""
-
-class ChatService:
-    def __init__(self, temperature: float = 0.01, k: int = 6):
-        self.client = self.get_llm()
-        self.temperature = temperature
-        self.k = k
-        self.document_processor = DocumentProcessor()
-        self._retrieval_chain = self._build_retrieval_chain()
-
-    def _build_retrieval_chain(self):
-        # Create the retrieval chain using the custom prompts
-        contextualize_prompt = ChatPromptTemplate(
-            [
-                ("system", CONTEXTUALIZE_SYSTEM_PROMPT),
-                MessagesPlaceholder("chat_history"),
-                ("human", "{input}"),
-            ]
+# LLM Initialization
+def get_llm():
+    if app_config.model.llm_provider == LLMProvider.OPENAI:
+        return OpenAI(
+            api_key=app_config.model.api_key,
+            model=app_config.model.llm_model
         )
+    return ChatCohere(
+        cohere_api_key=app_config.model.api_key,
+        model=app_config.model.llm_model
+    )
 
-        history_aware_retriever = create_history_aware_retriever(
-            self.client,
-            self.document_processor.collection.as_retriever(k=self.k),
-            contextualize_prompt
+llm = get_llm()
+
+# Embedding Model Initialization
+def get_embedding_model():
+    if app_config.model.llm_provider == LLMProvider.OPENAI:
+        return OpenAIEmbeddings(
+            api_key=app_config.model.api_key,
+            model=app_config.model.embedding_model
         )
+    return CohereEmbeddings(
+        cohere_api_key=app_config.model.api_key,
+        model=app_config.model.embedding_model
+    )
 
-        main_prompt = ChatPromptTemplate(
-            [
-                ("system", CUSTOM_PROMPT_TEMPLATE),
-                MessagesPlaceholder("chat_history"),
-                ("human", "{input}"),
-            ]
-        )
+embedding_model = get_embedding_model()
 
-        return create_retrieval_chain(
-            history_aware_retriever,
-            create_stuff_documents_chain(self.client, main_prompt)
-        )
-
-    def ask_question(self, question: str, history: list[dict[str, any]]):
-        try:
-            memory = self._build_history(history)
-            result = self._retrieval_chain.invoke({
-                "input": question,
-                "chat_history": memory
-            })
-            return {
-                "question": question,
-                "answer": result['answer'],
-                "context": result['context']
+# Retrieve Tool
+@tool(response_format="content_and_artifact")
+def retrieve(query: str):
+    """
+    Perform a similarity search to retrieve relevant information.
+    """
+    embedding = embedding_model.embed_query(query)
+    rows = vector_store.similarity_search(embedding, limit=10)
+    context = [
+        Document(
+            page_content=row["text"],
+            metadata={
+                "source_key": row["source_key"],
+                "source_label": row["source_label"]
             }
-        except Exception as e:
-            traceback.print_exc()
-            raise HTTPException(status_code=500, detail=f"Error processing question: {str(e)}")
+        ) for row in rows
+    ]
+    serialized = "\n\n".join(
+        f"Source: {doc.metadata}\nContent: {doc.page_content}"
+        for doc in context
+    )
+    return serialized, context
 
-    def _build_history(self, custom_memory: list[dict[str, any]]) -> list[BaseMessage]:
-        history = []
-        for elem in custom_memory:
-            history.append(HumanMessage(elem["question"]))
-            history.append(AIMessage(elem["answer"]))
-        return history
+# Query or Respond
+def query_or_respond(state: MessagesState):
+    """Generate tool call for retrieval or respond."""
+    llm_with_tools = llm.bind_tools([retrieve])
+    response = llm_with_tools.invoke(state["messages"])
+    return {"messages": [response]}
 
-    def get_llm(self):
-        # LLM initialization based on the provider (Cohere or OpenAI)
-        if app_config.model.llm_provider == LLMProvider.OPENAI:
-            return OpenAI(
-                api_key=app_config.model.api_key,
-                model=app_config.model.llm_model
-            )
+tools = ToolNode([retrieve])
+
+# Generate Response
+def generate(state: MessagesState):
+    """Generate answer."""
+    # Get generated ToolMessages
+    recent_tool_messages = []
+    for message in reversed(state["messages"]):
+        if message.type == "tool":
+            recent_tool_messages.append(message)
         else:
-            return ChatCohere(
-                cohere_api_key=app_config.model.api_key,
-                model=app_config.model.llm_model
-            )
+            break
+    tool_messages = recent_tool_messages[::-1]
+
+    # Format into prompt
+    docs_content = "\n\n".join(doc.content for doc in tool_messages)
+    system_message_content = app_config.model.system_prompt.format(docs_content=docs_content)
+    conversation_messages = [
+        message
+        for message in state["messages"]
+        if message.type in ("human", "system")
+        or (message.type == "ai" and not message.tool_calls)
+    ]
+    prompt = [SystemMessage(system_message_content)] + conversation_messages
+
+    # Run
+    response = llm.invoke(prompt)
+    return {"messages": [response]}
+
+async def ask_question(question: str, thread_id: str):
+    config = {"configurable": {"thread_id": thread_id}}
+
+    graph_builder = StateGraph(MessagesState)
+    graph_builder.add_node(query_or_respond)
+    graph_builder.add_node(tools)
+    graph_builder.add_node(generate)
+
+    graph_builder.set_entry_point("query_or_respond")
+    graph_builder.add_conditional_edges(
+        "query_or_respond",
+        tools_condition,
+        {END: END, "tools": "tools"},
+    )
+    graph_builder.add_edge("tools", "generate")
+    graph_builder.add_edge("generate", END)
+
+
+    async with get_db_connection() as pool:
+        checkpointer = AsyncPostgresSaver(pool)
+        await checkpointer.setup()
+        graph = graph_builder.compile(checkpointer=checkpointer)
+        async for message, metadata in graph.astream(
+            {"messages": [{"role": "user", "content": question}]},
+            stream_mode="messages",
+            config=config,
+        ):
+            yield message.content
