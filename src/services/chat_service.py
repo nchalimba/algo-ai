@@ -64,7 +64,7 @@ def retrieve(query: str):
         ) for row in rows
     ]
     serialized = "\n\n".join(
-        f"Source: {doc.metadata}\nContent: {doc.page_content}"
+        f"RAG_SOURCE_METADATA: {doc.metadata}\nRAG_SOURCE_CONTENT: {doc.page_content}\nEND_RAG_SOURCE_CONTENT\n"
         for doc in context
     )
     return serialized, context

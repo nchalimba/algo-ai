@@ -96,6 +96,8 @@ uvicorn main:app --reload
 - `POST /process/text` - Process text input
 - `POST /process/url` - Process content from URL
 - `POST /process/pdf` - Process PDF file
+- `GET /message`- Get all messages for a given user id
+- `DELETE /message` - Delete all messages for a given user id
 - `POST /ask` - Ask questions (streaming response)
 - `GET /health` - Health check
 

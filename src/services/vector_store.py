@@ -49,7 +49,7 @@ class VectorStore:
         ]
         self.collection.insert_many(documents)
 
-    def similarity_search(self, embedding, limit=5):
+    def similarity_search(self, embedding, limit=10):
         return self.collection.find(
             {},
             sort={"$vector": embedding},
