@@ -1,3 +1,4 @@
+import json
 from langchain_cohere import ChatCohere
 from langchain_openai import OpenAI
 from langchain_cohere import CohereEmbeddings
@@ -63,9 +64,12 @@ def retrieve(query: str):
             }
         ) for row in rows
     ]
-    serialized = "\n\n".join(
-        f"RAG_SOURCE_METADATA: {doc.metadata}\nRAG_SOURCE_CONTENT: {doc.page_content}\nEND_RAG_SOURCE_CONTENT\n"
-        for doc in context
+    serialized = "SERIALIZED_SOURCES: " + json.dumps(
+        [
+            {"metadata": doc.metadata, "content": doc.page_content}
+            for doc in context
+        ],
+        indent=2
     )
     return serialized, context
 
@@ -103,6 +107,7 @@ def generate(state: MessagesState):
 
     # Run
     response = llm.invoke(prompt)
+
     return {"messages": [response]}
 
 async def ask_question(question: str, thread_id: str):
@@ -132,4 +137,10 @@ async def ask_question(question: str, thread_id: str):
             stream_mode="messages",
             config=config,
         ):
+            if metadata.get("langgraph_node") == "tools":
+                continue
+            if metadata.get("langgraph_node") == "query_or_respond":
+                print("Message", message)
+                print("Metadata", metadata)
+            # print(message)
             yield message.content
