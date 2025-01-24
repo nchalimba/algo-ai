@@ -8,7 +8,7 @@ from langchain import hub
 from langchain_core.documents import Document
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage
-from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from src.database import get_db_connection
 
@@ -73,14 +73,32 @@ def retrieve(query: str):
     )
     return serialized, context
 
-# Query or Respond
-def query_or_respond(state: MessagesState):
-    """Generate tool call for retrieval or respond."""
-    llm_with_tools = llm.bind_tools([retrieve])
-    response = llm_with_tools.invoke(state["messages"])
-    return {"messages": [response]}
+# Query function
+def should_query(state: MessagesState):
+    """Determine if we need to query for information."""
+    # Create a chain that can use tools
+    chain = llm.bind_tools([retrieve])
+    
+    # Run the chain and get the response
+    messages = state["messages"]
+    response = chain.invoke(messages)
+    
+    # Check if we need tools by looking for tool calls
+    if hasattr(response, "tool_calls") and response.tool_calls:
+        # If we need tools, return the response with tool calls
+        return {"messages": messages + [response]}
+    else:
+        # If we don't need tools, return just the original messages
+        # This will make the should_use_tools function return END
+        return {"messages": messages}
 
 tools = ToolNode([retrieve])
+
+# Response function
+def direct_response(state: MessagesState):
+    """Generate direct response without tools."""
+    response = llm.invoke(state["messages"])
+    return {"messages": [response]}
 
 # Generate Response
 def generate(state: MessagesState):
@@ -110,23 +128,40 @@ def generate(state: MessagesState):
 
     return {"messages": [response]}
 
+def should_use_tools(state: MessagesState) -> str:
+    """Determine if we should use tools based on the last message."""
+    last_message = state["messages"][-1]
+    # Check if the message has tool calls
+    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+        return "tools"
+    return END
+
 async def ask_question(question: str, thread_id: str):
     config = {"configurable": {"thread_id": thread_id}}
 
     graph_builder = StateGraph(MessagesState)
-    graph_builder.add_node(query_or_respond)
+    
+    # Add nodes
+    graph_builder.add_node("should_query", should_query)
+    graph_builder.add_node("direct_response", direct_response)
     graph_builder.add_node(tools)
     graph_builder.add_node(generate)
 
-    graph_builder.set_entry_point("query_or_respond")
+    # Set entry point
+    graph_builder.set_entry_point("should_query")
+    
+    # Add edges with custom condition
     graph_builder.add_conditional_edges(
-        "query_or_respond",
-        tools_condition,
-        {END: END, "tools": "tools"},
+        "should_query",
+        should_use_tools,
+        {
+            "tools": "tools",  # If tools are needed, go to tools
+            END: "direct_response",  # If no tools needed, go to direct response
+        },
     )
     graph_builder.add_edge("tools", "generate")
     graph_builder.add_edge("generate", END)
-
+    graph_builder.add_edge("direct_response", END)
 
     async with get_db_connection() as pool:
         checkpointer = AsyncPostgresSaver(pool)
@@ -137,10 +172,13 @@ async def ask_question(question: str, thread_id: str):
             stream_mode="messages",
             config=config,
         ):
-            if metadata.get("langgraph_node") == "tools":
+            node = metadata.get("langgraph_node")
+            # Skip messages from tools node
+            if node == "tools":
                 continue
-            if metadata.get("langgraph_node") == "query_or_respond":
-                print("Message", message)
-                print("Metadata", metadata)
-            # print(message)
+            # Skip messages from should_query node
+            if node == "should_query":
+                continue
+            # Yield messages from direct_response and generate nodes
+            print(message.content)
             yield message.content

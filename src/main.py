@@ -18,12 +18,14 @@ app = FastAPI(
     version=app_config.info.version
 )
 
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],       # Replace "*" with specific origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Type", "Content-Length"],  # Expose necessary headers
 )
 
 @app.middleware("http")
@@ -34,6 +36,7 @@ app.include_router(document_router, prefix="/process")
 app.include_router(chat_router, prefix="/chat")
 app.include_router(message_router, prefix="/message")
 app.include_router(health_router, prefix="/health")
+
 
 @app.get("/")
 async def root():

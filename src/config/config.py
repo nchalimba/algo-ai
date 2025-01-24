@@ -5,6 +5,8 @@ import os
 
 load_dotenv()
 
+NO_INFO_RESPONSE = "I apologize, but I don't have enough relevant information in my knowledge base to provide an accurate answer to your question. Please feel free to rephrase your question or ask about a different topic."
+
 class LLMProvider(str, Enum):
     OPENAI = "OPENAI"
     COHERE = "COHERE"
@@ -26,17 +28,20 @@ class ModelConfig(BaseModel):
     api_key: str = os.getenv("COHERE_API_KEY" if llm_provider == LLMProvider.COHERE else "OPENAI_API_KEY")
     embedding_model: str = "embed-english-v3.0"
     llm_model: str = "command-r-plus-08-2024"
-    system_prompt: str = """
+    system_prompt: str = (
+        """
         You are an AI assistant specialized in question-answering tasks.
         Your responses must be strictly based on the provided retrieved context. 
         If the context does not contain sufficient information to answer the question, respond with:
-        "I apologize, but I don't have enough relevant information in my knowledge base to provide an accurate answer to your question. Please feel free to rephrase your question or ask about a different topic.".
-
+        """
+        + NO_INFO_RESPONSE
+        + """
         Do not include information or assumptions outside the provided context.
         Provide answers that are accurate, concise, and professional.
         Context for this task:
         {docs_content}
-    """
+        """
+    )
 
 class PostgresConfig(BaseModel):
     uri: str = os.getenv("POSTGRES_CONNECTION_STRING")

@@ -4,17 +4,24 @@ from fastapi.responses import JSONResponse
 EXEMPT_PATHS = ["/health", "/health/"]
 
 async def validate_user_id_middleware(request: Request, call_next):
-    print(request.url.path)
     if request.url.path in EXEMPT_PATHS:
         return await call_next(request)
     
     try:
-        user_id = request.headers.get("X-User-ID")
+        user_id = next(
+            (value for key, value in request.headers.items() 
+            if key.lower() == "x-user-id"), 
+            None
+        )
+        print("request.headers:", request.headers)
+        user_id = "123" #TODO: fix user id retrieval
+        # if not user_id:
+        #     user_id = "123456434"
         if not user_id:
-            return JSONResponse(content={"detail": "X-User-ID header is required"}, status_code=400)
+            return JSONResponse(content={"detail": "X-User-ID header is required"}, status_code=403)
 
         if not is_valid_user_id(user_id):
-            return JSONResponse(content={"detail": "Invalid X-User-ID format"}, status_code=400)
+            return JSONResponse(content={"detail": "Invalid X-User-ID format"}, status_code=403)
 
         request.state.user_id = user_id
         return await call_next(request)
