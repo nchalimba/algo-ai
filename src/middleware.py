@@ -1,7 +1,7 @@
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 
-EXEMPT_PATHS = ["/health", "/health/"]
+EXEMPT_PATHS = ["/health", "/health/", "/info", "/info/"]
 
 async def validate_user_id_middleware(request: Request, call_next):
     if request.url.path in EXEMPT_PATHS:

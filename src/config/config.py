@@ -49,7 +49,6 @@ class PostgresConfig(BaseModel):
     autocommit: bool = True
     prepare_threshold: int = 0
 
-
 class InfoConfig(BaseModel):
     title: str = "DSA RAG API"
     description: str = "A RAG system for answering questions about Data Structures and Algorithms"
