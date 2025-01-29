@@ -25,6 +25,12 @@ class VectorStore:
         Delete existing embeddings in the vector database for a specific source ID.
         """
         self.collection.delete_many({"source_key": source_key})
+
+    def delete_embeddings_by_source_label(self, source_label: str):
+        """
+        Delete existing embeddings in the vector database for a specific source label.
+        """
+        self.collection.delete_many({"source_label": source_label})
     
     def ping(self):
         """
@@ -55,3 +61,6 @@ class VectorStore:
             sort={"$vector": embedding},
             limit=limit,
             include_similarity=True)
+    
+    def get_distinct_sources(self):
+        return self.collection.distinct("source_label")

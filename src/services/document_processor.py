@@ -39,7 +39,7 @@ class DocumentProcessor:
         embeddings = self.embedding_model.embed_documents(chunks)
         self.vector_store.insert_embeddings(chunks, embeddings, source_key, title, "text")
 
-    def process_pdf(self, file_bytes: bytes, title: str = None):
+    def process_pdf(self, file_bytes: bytes, title: str):
         """
         Process a PDF file: extract text, chunk, delete old embeddings, create new embeddings, and insert.
         """
