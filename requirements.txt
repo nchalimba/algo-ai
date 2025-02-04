@@ -21,3 +21,4 @@ langgraph-checkpoint-postgres==2.0.10
 psycopg==3.2.3
 psycopg-pool==3.2.4
 psycopg-binary==3.2.3
+pyjwt==2.10.1

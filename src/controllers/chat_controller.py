@@ -1,8 +1,8 @@
 import traceback
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, HTTPException, Header, Request, Response
+from fastapi.responses import StreamingResponse, JSONResponse
 import json
-from typing import AsyncGenerator, Dict, Any
+from typing import Annotated, AsyncGenerator
 from src.services.chat_service import ask_question as ask
 from src.models.request_models import QuestionRequest
 
@@ -39,20 +39,41 @@ async def stream_json_response(question: str, thread_id: str) -> AsyncGenerator[
         }
         yield json.dumps(error_response) + "\n"
 
-@router.post("/ask")
-async def ask_question(request: Request, request_body: QuestionRequest):
+async def stream_plain_text_response(question: str, thread_id: str) -> AsyncGenerator[str, None]:
     """
-    Endpoint that streams JSON responses for chat messages.
-    Each response is a newline-delimited JSON object containing:
-    - text: The response text chunk
-    - done: Boolean indicating if the stream is complete
-    - error: Error object if an error occurred, null otherwise
+    Async generator that yields plain text response chunks.
     """
     try:
-        return StreamingResponse(
-            stream_json_response(request_body.question, request.state.user_id),
-            media_type="application/x-ndjson"
-        )
+        async for response in ask(question, thread_id):
+            yield response
+        
+        # Send final newline to indicate completion
+        yield "\n"
+            
+    except Exception as e:
+        yield str(e) + "\n"
+
+@router.post("/ask")
+async def ask_question(x_user_id: Annotated[str, Header()], request_body: QuestionRequest, accept: Annotated[str, Header()] = "text/plain"):
+    """
+    Endpoint that streams responses for chat messages.
+    Each response is a newline-delimited chunk containing:
+    - text: The response text chunk (JSON format)
+    - done: Boolean indicating if the stream is complete (JSON format)
+    - error: Error object if an error occurred, null otherwise (JSON format)
+    or plain text response
+    """
+    try:
+        if 'application/json' in accept:
+            return StreamingResponse(
+                stream_json_response(request_body.question, x_user_id),
+                media_type="application/x-ndjson"
+            )
+        else:
+            return StreamingResponse(
+                stream_plain_text_response(request_body.question, x_user_id),
+                media_type="text/plain"
+            )
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
