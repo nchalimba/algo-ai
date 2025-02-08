@@ -2,9 +2,12 @@ import traceback
 from typing import Annotated
 from fastapi import APIRouter, Depends, Form, HTTPException, File, Header, UploadFile
 
-from src.services.auth_service import verify_api_key, verify_jwt
+from src.services.auth_service import verify_jwt
 from src.services.document_processor import DocumentProcessor
 from src.models.request_models import TextRequest, URLsRequest
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -24,6 +27,7 @@ async def delete_documents_with_source_label(authorization: Annotated[str, Heade
         return {}
     except Exception as e:
         traceback.print_exc()
+        logger.error("Error deleting documents: %s", str(e))
         raise HTTPException(status_code=500, detail=f"Error deleting documents: {str(e)}")
 
 @router.post("/text")
@@ -38,6 +42,7 @@ async def process_text(authorization: Annotated[str, Header()], request: TextReq
         return {"message": "Text processed successfully."}
     except Exception as e:
         traceback.print_exc()
+        logger.error("Error processing text: %s", str(e))
         raise HTTPException(status_code=500, detail=f"Error processing text: {str(e)}")
 
 @router.post("/pdf")
@@ -54,6 +59,7 @@ async def process_pdf(authorization: Annotated[str, Header()], title: Annotated[
         return {"message": "PDF processed successfully."}
     except Exception as e:
         traceback.print_exc()
+        logger.error("Error processing PDF: %s", str(e))
         raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e)}")
 
 @router.post("/url")
@@ -68,4 +74,5 @@ async def process_urls(authorization: Annotated[str, Header()], request: URLsReq
         return {"message": "URLs processed successfully."}
     except Exception as e:
         traceback.print_exc()
+        logger.error("Error processing URLs: %s", str(e))
         raise HTTPException(status_code=500, detail=f"Error processing URLs: {str(e)}")

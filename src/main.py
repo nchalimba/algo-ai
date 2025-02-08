@@ -10,13 +10,19 @@ from src.controllers.health_controller import router as health_router
 from src.controllers.info_controller import router as info_router
 from src.controllers.auth_controller import router as auth_router
 from src.config.config import app_config
+import logging
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 app = FastAPI(
     title=app_config.info.title,
     description=app_config.info.description,
-    version=app_config.info.version
+    version=app_config.info.version,
+    docs_url="/"
 )
 
 
@@ -36,11 +42,11 @@ app.include_router(health_router, prefix="/health")
 app.include_router(info_router, prefix="/info")
 app.include_router(auth_router, prefix="/admin")
 
-@app.get("/")
-async def root():
-    return {
-        "content": "Welcome to DSA RAG API, a RAG system for answering questions about Data Structures and Algorithms."
-    }
+# @app.get("/")
+# async def root():
+#     return {
+#         "content": "Welcome to DSA RAG API, a RAG system for answering questions about Data Structures and Algorithms."
+#     }
 
 if __name__ == "__main__":
     uvicorn.run(

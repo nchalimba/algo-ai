@@ -52,7 +52,7 @@ class PostgresConfig(BaseModel):
 
 class InfoConfig(BaseModel):
     title: str = "DSA RAG API"
-    description: str = "A RAG system for answering questions about Data Structures and Algorithms"
+    description: str = "Official Swagger documentation for the DSA RAG API, a RAG system for answering questions about Data Structures and Algorithms."
     version: str = "1.0.0"
 
 class AdminConfig(BaseModel):

@@ -1,10 +1,13 @@
 import traceback
-from fastapi import APIRouter, HTTPException, Header, Request, Response
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi import APIRouter, HTTPException, Header
+from fastapi.responses import StreamingResponse
 import json
 from typing import Annotated, AsyncGenerator
 from src.services.chat_service import ask_question as ask
 from src.models.request_models import QuestionRequest
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -37,6 +40,8 @@ async def stream_json_response(question: str, thread_id: str) -> AsyncGenerator[
                 "type": type(e).__name__
             }
         }
+        traceback.print_exc()
+        logger.error("Error asking question: %s", str(e))
         yield json.dumps(error_response) + "\n"
 
 async def stream_plain_text_response(question: str, thread_id: str) -> AsyncGenerator[str, None]:
@@ -51,6 +56,8 @@ async def stream_plain_text_response(question: str, thread_id: str) -> AsyncGene
         yield "\n"
             
     except Exception as e:
+        traceback.print_exc()
+        logger.error("Error asking question: %s", str(e))
         yield str(e) + "\n"
 
 @router.post("/ask")
@@ -76,4 +83,5 @@ async def ask_question(x_user_id: Annotated[str, Header()], request_body: Questi
             )
     except Exception as e:
         traceback.print_exc()
+        logger.error("Error asking question: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))

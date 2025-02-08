@@ -5,9 +5,10 @@ A Retrieval Augmented Generation (RAG) system for answering questions about Data
 ## Features
 
 - 🤖 Multiple LLM provider support (OpenAI/Cohere)
-- 📚 Process various input types (Text, URLs, PDFs)
+- 📚 Set various types of sources (Text, URLs, PDFs)
 - 🔄 Streaming responses
 - 💾 Vector storage using Datastax Astra DB
+- 📦 Persistence of messages using Postgres
 - ⚡ Fast API with async support
 - 🔧 Configurable chunking strategies
 
@@ -18,6 +19,7 @@ A Retrieval Augmented Generation (RAG) system for answering questions about Data
 - API keys for:
   - OpenAI or Cohere
   - Datastax Astra DB
+  - Postgres
 
 ## Installation
 
@@ -66,17 +68,7 @@ source dsa_rag_env/bin/activate
 pip install -r requirements.txt
 ```
 
-4. Create `.env` file and add your API keys:
-
-```
-OPENAI_API_KEY=your_openai_key_here
-COHERE_API_KEY=your_cohere_key_here
-ASTRA_DB_APPLICATION_TOKEN=your_astra_token_here
-ASTRA_DB_ID=your_astra_db_id
-ASTRA_DB_KEYSPACE=your_keyspace
-
-LLM_PROVIDER=COHERE
-```
+4. Create `.env` file and add your environment variables according to .env.example
 
 ## Usage
 
@@ -100,6 +92,8 @@ uvicorn main:app --reload
 - `DELETE /message` - Delete all messages for a given user id
 - `POST /ask` - Ask questions (streaming response)
 - `GET /health` - Health check
+- `GET /info` - Get information about the API
+- `POST /admin/login` - Login (admin only)
 
 ## Configuration
 

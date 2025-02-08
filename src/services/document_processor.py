@@ -10,6 +10,11 @@ from langchain_community.document_loaders import WebBaseLoader
 from src.config.config import app_config, LLMProvider
 from src.services.vector_store import VectorStore
 
+import time
+import logging
+
+logger = logging.getLogger(__name__)
+
 class DocumentProcessor:
     def __init__(self):
         self.vector_store = VectorStore()
@@ -36,7 +41,7 @@ class DocumentProcessor:
         self.vector_store.delete_embeddings(source_key)
         text = self._clean_text(text)
         chunks = self.text_splitter.split_text(text)
-        embeddings = self.embedding_model.embed_documents(chunks)
+        embeddings = self._create_embeddings(chunks)
         self.vector_store.insert_embeddings(chunks, embeddings, source_key, title, "text")
 
     def process_pdf(self, file_bytes: bytes, title: str):
@@ -71,8 +76,34 @@ class DocumentProcessor:
         self.vector_store.delete_embeddings(source_key)
         text = self._clean_text(text)
         chunks = self.text_splitter.split_text(text)
-        embeddings = self.embedding_model.embed_documents(chunks)
+        embeddings = self._create_embeddings(chunks)
         self.vector_store.insert_embeddings(chunks, embeddings, source_key, source_label, type)
+
+    def _create_embeddings(self, chunks: list):
+        # split these into batches
+        # reason: trial token rate limit exceeded, limit is 100000 tokens per minute
+
+        '''
+        Math:
+        100_000 tokens -> how many words?
+        100_000 / 3 -> 33_333 words
+        chunk size = 512 -> 65 chunks
+
+        --> after 65 chunks, wait for 1 minute
+
+
+        '''
+        logger.info("Creating embeddings. Chunks: %s", len(chunks))
+        CHUNK_LIMIT = 700
+        embeddings = []
+        for i in range(0, len(chunks), CHUNK_LIMIT):
+            batch = chunks[i:i + CHUNK_LIMIT]
+            embeddings_batch = self.embedding_model.embed_documents(batch)
+            embeddings.extend(embeddings_batch)
+            logger.info("Created embeddings for chunks %s of %s", i + CHUNK_LIMIT, len(chunks))
+            if i + CHUNK_LIMIT < len(chunks):
+                time.sleep(60)  # wait for 1 minute if there are more chunks
+        return embeddings
     
     def _clean_text(self, text):
         '''
