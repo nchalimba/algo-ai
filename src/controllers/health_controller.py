@@ -1,6 +1,5 @@
 import traceback
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends
 from src.services.vector_store import VectorStore
 from src.database import ping_db
 

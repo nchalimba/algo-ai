@@ -42,7 +42,6 @@ class MessageRepository:
             WHERE thread_id = %s;
             """
         ]
-        print("Deleting all messages for user_id:", user_id)
         async with get_db_connection() as conn:
             async with conn.cursor() as cursor:
                 for query in queries:
