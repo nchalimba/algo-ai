@@ -3,13 +3,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Header
 from fastapi.responses import JSONResponse
+from src.models.response_models import AuthResponse
 from src.services.auth_service import verify_api_key, generate_jwt
 import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-@router.post('/login')
+@router.post('/login', response_model=AuthResponse)
 async def admin_login(authorization: Annotated[str, Header()]) -> JSONResponse:
     """
     Returns a JWT if the API key is valid.
@@ -18,8 +19,10 @@ async def admin_login(authorization: Annotated[str, Header()]) -> JSONResponse:
         api_key = authorization.split(' ')[-1]
         if not verify_api_key(api_key):
             raise HTTPException(status_code=401, detail='Unauthorized: Invalid API key')
-
+            
+        logger.info("New admin token generated.")
         jwt_token, expires_at = generate_jwt()  # Call the function to generate JWT
+
         return JSONResponse(content={'token': jwt_token, 'expires_at': expires_at})
     except HTTPException as e:
         raise e
