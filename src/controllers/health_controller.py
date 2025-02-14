@@ -1,5 +1,6 @@
 import traceback
 from fastapi import APIRouter, Depends
+from src.models.response_models import HealthResponse
 from src.services.vector_store import VectorStore
 from src.database import ping_db
 
@@ -8,7 +9,7 @@ router = APIRouter()
 def get_vector_store() -> VectorStore:
     return VectorStore()
 
-@router.get("/")
+@router.get("/", response_model=HealthResponse)
 async def health_check(vector_store: VectorStore = Depends(get_vector_store)):
     """
     Health check endpoint.

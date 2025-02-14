@@ -7,16 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Upcoming Changes
+
+Stay tuned for exciting new features and improvements!
+
 ## [1.0.0] - 2025-02-08
 
 ### Added
 
-- **Initial Release of DSA RAG**: Core setup using FastAPI, LangChain, Datastax Astra DB, and Postgres.
+- **Initial Release of DSA RAG**: The foundational release of the DSA RAG system, built with **FastAPI**, **LangChain**, **Datastax Astra DB**, and **Postgres**.
 - **API Endpoints**:
-
-  - auth endpoint for admin login
-  - chat endpoint for interacting with the RAG system
-  - health endpoint for checking system health
-  - info endpoint for getting information about the API
-  - document endpoint for processing creating or deleting sources
-  - message endpoints for getting and deleting messages
+  - **auth endpoint**: Admin login functionality to manage access securely.
+  - **chat endpoint**: The core interaction point for users to engage with the RAG system.
+  - **health endpoint**: A simple health check to monitor the system's status.
+  - **info endpoint**: Provides detailed information about the API.
+  - **document endpoint**: Allows for the creation or deletion of data sources.
+  - **message endpoints**: Enables fetching and deletion of messages, offering more control over interactions.

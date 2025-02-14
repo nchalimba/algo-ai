@@ -5,6 +5,7 @@ import json
 from typing import Annotated, AsyncGenerator
 from src.services.chat_service import ask_question as ask
 from src.models.request_models import QuestionRequest
+from src.models.response_models import chat_response
 import logging
 
 logger = logging.getLogger(__name__)
@@ -60,7 +61,7 @@ async def stream_plain_text_response(question: str, thread_id: str) -> AsyncGene
         logger.error("Error asking question: %s", str(e))
         yield str(e) + "\n"
 
-@router.post("/ask")
+@router.post("/ask", responses=chat_response)
 async def ask_question(x_user_id: Annotated[str, Header()], request_body: QuestionRequest, accept: Annotated[str, Header()] = "text/plain"):
     """
     Endpoint that streams responses for chat messages.

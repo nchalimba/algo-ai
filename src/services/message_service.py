@@ -1,5 +1,5 @@
 from src.repositories.message_repository import MessageRepository
-from src.models.message import Message, Source
+from src.models.response_models import MessageResponse, MessageSource
 from src.config.config import NO_INFO_RESPONSE
 
 class MessageService:
@@ -46,11 +46,11 @@ class MessageService:
                 continue
             source_keys.add(source_key)
             source_label = artifact.get("kwargs", {}).get("metadata", {}).get("source_label")
-            sources.append(Source(source_key=source_key, source_label=source_label))
+            sources.append(MessageSource(source_key=source_key, source_label=source_label))
 
         return sources
 
-    def _parse_message_row(self, row: dict) -> Message:
+    def _parse_message_row(self, row: dict) -> MessageResponse:
         """
         Parses a database row to extract the thread_id, id, content, and type (user/ai).
         """
@@ -98,7 +98,7 @@ class MessageService:
             else: 
                 return None
 
-        return Message(
+        return MessageResponse(
             thread_id=row.get("thread_id"),
             id=row.get("id"),
             content=content,

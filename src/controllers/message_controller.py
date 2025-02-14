@@ -2,6 +2,7 @@ import traceback
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Header
 from fastapi.responses import JSONResponse
+from src.models.response_models import MessageResponse, EmptyResponse
 from src.services.message_service import MessageService
 import logging
 
@@ -12,7 +13,7 @@ router = APIRouter()
 def get_message_service() -> MessageService:
     return MessageService()
 
-@router.get("/")
+@router.get("/", response_model=list[MessageResponse])
 async def get_messages(x_user_id: Annotated[str, Header()], message_service: MessageService = Depends(get_message_service)):
     """
     Returns a list of messages for the given user.
@@ -27,7 +28,7 @@ async def get_messages(x_user_id: Annotated[str, Header()], message_service: Mes
         logger.error("Error getting messages: %s", str(e))
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
-@router.delete("/")
+@router.delete("/", response_model=EmptyResponse)
 async def delete_all_messages(x_user_id: Annotated[str, Header()], message_service: MessageService = Depends(get_message_service)):
     """
     Deletes all messages for the given user.

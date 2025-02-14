@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from src.models.response_models import InfoResponse
 from src.services.info_service import InfoService
 import traceback
 import logging
@@ -10,7 +11,7 @@ router = APIRouter()
 def get_info_service():
     return InfoService()
 
-@router.get("/")
+@router.get("/", response_model=InfoResponse)
 async def get_info(info_service: InfoService = Depends(get_info_service)):
     """
     Returns information and configuration values for the app.
