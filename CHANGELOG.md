@@ -11,11 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Stay tuned for exciting new features and improvements!
 
+## [1.0.1] - 2025-02-19
+
+### 🔧 Documentation
+
+- Renamed repository from `dsa-rag` to `algo-ai` (no impact on functionality).
+
 ## [1.0.0] - 2025-02-08
 
 ### Added
 
-- **Initial Release of DSA RAG**: The foundational release of the DSA RAG system, built with **FastAPI**, **LangChain**, **Datastax Astra DB**, and **Postgres**.
+- **Initial Release of AlgoAI**: The foundational release of the AlgoAI system, built with **FastAPI**, **LangChain**, **Datastax Astra DB**, and **Postgres**.
 - **API Endpoints**:
   - **auth endpoint**: Admin login functionality to manage access securely.
   - **chat endpoint**: The core interaction point for users to engage with the RAG system.

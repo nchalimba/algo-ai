@@ -1,10 +1,10 @@
-# DSA RAG
+# AlgoAI
 
-Welcome to **DSA RAG**! 🚀 A powerful Retrieval Augmented Generation (RAG) system designed to answer all your questions about **Data Structures** and **Algorithms**. Whether you're a student, developer, or enthusiast, this system is here to help you understand and explore DSA concepts like never before. 💡
+Welcome to **AlgoAI**! 🚀 A powerful Retrieval Augmented Generation (RAG) system designed to answer all your questions about **Data Structures** and **Algorithms**. Whether you're a student, developer, or enthusiast, this system is here to help you understand and explore DSA concepts like never before. 💡
 
 With **LangChain** and **FastAPI** at its core, you can configure the system to use either **OpenAI** or **Cohere** as the LLM provider (though I highly recommend **Cohere** for a cost-effective option). 😎
 
-🚀 **Live Demo**: [Visit DSA-RAG](https://dsa-rag.api.abubeker.com/)
+🚀 **Live Demo**: [Visit AlgoAI](https://algo-ai.api.abubeker.com/)
 
 ## Technologies
 
@@ -33,8 +33,8 @@ This project is powered by a blend of cutting-edge technologies:
 1. **Clone the repository**:
 
 ```bash
-git clone https://github.com/nchalimba/dsa_rag.git
-cd dsa_rag
+git clone https://github.com/nchalimba/algo-ai.git
+cd algo-ai
 ```
 
 2. **Create and activate a virtual environment:**
@@ -43,12 +43,12 @@ cd dsa_rag
 
 ```bash
 # Create environment
-python3 -m venv dsa_rag_env
+python3 -m venv algo_ai_env
 
 # Activate on Windows:
-dsa_rag_env\Scripts\activate
+algo_ai_env\Scripts\activate
 # Activate on macOS/Linux:
-source dsa_rag_env/bin/activate
+source algo_ai_env/bin/activate
 ```
 
 3. **Install dependencies:**

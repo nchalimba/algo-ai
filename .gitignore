@@ -30,6 +30,7 @@ wheels/
 venv/
 ENV/
 dsa_rag_env/
+algo_ai_env/
 
 # IDEs
 .idea/

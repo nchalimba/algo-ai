@@ -51,8 +51,8 @@ class PostgresConfig(BaseModel):
     prepare_threshold: int = 0
 
 class InfoConfig(BaseModel):
-    title: str = "DSA RAG API"
-    description: str = "Official Swagger documentation for the DSA RAG API, a RAG system for answering questions about Data Structures and Algorithms."
+    title: str = "AlgoAI API"
+    description: str = "Official Swagger documentation for the AlgoAI API, a RAG system for answering questions about Data Structures and Algorithms."
     version: str = "1.0.0"
 
 class AdminConfig(BaseModel):
