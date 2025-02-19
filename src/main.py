@@ -42,12 +42,6 @@ app.include_router(health_router, prefix="/health")
 app.include_router(info_router, prefix="/info")
 app.include_router(auth_router, prefix="/admin")
 
-# @app.get("/")
-# async def root():
-#     return {
-#         "content": "Welcome to DSA RAG API, a RAG system for answering questions about Data Structures and Algorithms."
-#     }
-
 if __name__ == "__main__":
     uvicorn.run(
         "main:app", 
