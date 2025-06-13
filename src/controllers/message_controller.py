@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Header
 from fastapi.responses import JSONResponse
 from src.models.response_models import MessageResponse, EmptyResponse
+from src.services.graph import get_graph
 from src.services.message_service import MessageService
 import logging
 
@@ -12,6 +13,15 @@ router = APIRouter()
 
 def get_message_service() -> MessageService:
     return MessageService()
+
+@router.get("/v2")
+async def get_messages(x_user_id: Annotated[str, Header()], message_service: MessageService = Depends(get_message_service)):
+    graph = await get_graph()
+    config = {"configurable": {"thread_id": x_user_id}}
+    
+    # Get current state
+    state = await graph.aget_state(config)
+    return {"thread_id": x_user_id, "messages": state.values.get("messages", [])}
 
 @router.get("/", response_model=list[MessageResponse])
 async def get_messages(x_user_id: Annotated[str, Header()], message_service: MessageService = Depends(get_message_service)):

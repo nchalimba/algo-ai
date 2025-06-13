@@ -1,8 +1,8 @@
 # AlgoAI
 
-Welcome to **AlgoAI**! 🚀 A powerful Retrieval Augmented Generation (RAG) system designed to answer all your questions about **Data Structures** and **Algorithms**. Whether you're a student, developer, or enthusiast, this system is here to help you understand and explore DSA concepts like never before. 💡
+Welcome to **AlgoAI**! 🚀 A powerful agentic Retrieval Augmented Generation (RAG) system designed to answer all your questions about **Data Structures** and **Algorithms**. Whether you're a student, developer, or enthusiast, this system is here to help you understand and explore DSA concepts like never before. 💡
 
-With **LangChain** and **FastAPI** at its core, you can configure the system to use either **OpenAI** or **Cohere** as the LLM provider (though I highly recommend **Cohere** for a cost-effective option). 😎
+With **LangChain** and **FastAPI** at its core, you can configure the system to use either **Gemini** or **OpenAI** or **Cohere** as the LLM provider (though I highly recommend **Gemini** for a cost-effective option). 😎
 
 🚀 **Live Demo**: [Visit AlgoAI](https://algo-ai.api.abubeker.com/)
 
@@ -15,6 +15,7 @@ This project is powered by a blend of cutting-edge technologies:
 - **Postgres** (for storing messages)
 - **Astra** (for vector storage)
 - **OpenAI** (LLM provider support)
+- **Gemini** (LLM provider support)
 - **Cohere** (LLM provider support)
 - **FastAPI** (for fast API with async support)
 

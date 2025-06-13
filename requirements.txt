@@ -2,11 +2,12 @@ fastapi==0.115.6
 uvicorn==0.34.0
 langchain==0.3.13
 langchain-community==0.3.12
-langchain-core==0.3.27
+langchain-core>=0.3.62
 langchain-cohere==0.3.3
 cohere==5.13.3
 openai==1.58.1
 langchain-openai==0.2.13
+langchain-google-genai==2.1.5
 python-multipart==0.0.20
 pypdf==5.1.0
 beautifulsoup4==4.12.3
@@ -22,3 +23,4 @@ psycopg==3.2.3
 psycopg-pool==3.2.4
 psycopg-binary==3.2.3
 pyjwt==2.10.1
+tavily-python==0.3.3
