@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Stay tuned for exciting new features and improvements!
 
+## [1.1.0] - 2025-06-13
+
+### Added
+
+- **Gemini as Default LLM Provider**: Integrated **Gemini** as the primary Large Language Model, enhancing the AI's understanding and generation capabilities.
+- **Experimental v2 Get Messages Endpoint**: Introduced an experimental new version of the `get messages` endpoint, designed for improved performance and flexibility in retrieving conversation history.
+
 ## [1.0.1] - 2025-02-19
 
 ### 🔧 Documentation

@@ -12,12 +12,13 @@ SYSTEM_PROMPT = """
     Please answer without any introductory sentence about your decision-making process.
     Provide answers that are accurate, well-structured, and professional. Also provide code examples if appropriate. 
     Please use markdown to format your responses. For code snippets, use the ``` syntax and use javascript.
+    Please always use the tools provided to answer the question. Do not answer directly without using a tool.
+    If you cannot answer the question by using the tools provided, respond with:
+    """ + NO_INFO_RESPONSE + """
 """
 SYSTEM_PROMPT_GENERATE = SYSTEM_PROMPT + """
-    Your responses must be strictly based on the provided retrieved context. 
+    Your responses must be based on the provided retrieved context. 
     Do not include information or assumptions outside the provided context.
-    If the context does not contain sufficient information to answer the question, respond with:
-    """ + NO_INFO_RESPONSE + """
     Context for this task:
     {docs_content}
 """
@@ -25,6 +26,7 @@ SYSTEM_PROMPT_GENERATE = SYSTEM_PROMPT + """
 class LLMProvider(str, Enum):
     OPENAI = "OPENAI"
     COHERE = "COHERE"
+    GEMINI = "GEMINI"
 
 class ChunkingStrategy(str, Enum):
     RECURSIVE = "RECURSIVE"
@@ -38,11 +40,29 @@ class VectorDBConfig(BaseModel):
     keyspace: str = os.getenv("ASTRA_DB_KEYSPACE", "default_keyspace")
     vector_dimension: int = 1024
 
+def get_llm_model(llm_provider: LLMProvider):
+    if llm_provider == LLMProvider.GEMINI:
+        return "gemini-2.0-flash"
+    elif llm_provider == LLMProvider.COHERE:
+        return "command-r-plus"
+    else:
+        return "gpt-4-turbo"
+
 class ModelConfig(BaseModel):
     llm_provider: LLMProvider = LLMProvider(os.getenv("LLM_PROVIDER", "COHERE"))
-    api_key: str = os.getenv("COHERE_API_KEY" if llm_provider == LLMProvider.COHERE else "OPENAI_API_KEY")
+    
+    @property
+    def api_key(self) -> str:
+        key_map = {
+            LLMProvider.GEMINI: "GOOGLE_API_KEY",
+            LLMProvider.COHERE: "COHERE_API_KEY",
+            LLMProvider.OPENAI: "OPENAI_API_KEY"
+        }
+        return os.getenv(key_map[self.llm_provider], "")
+    
     embedding_model: str = "embed-english-v3.0"
-    llm_model: str = "command-r-plus-08-2024"
+    embedding_api_key: str = os.getenv("COHERE_API_KEY", "")
+    llm_model: str = get_llm_model(llm_provider)
 
 class PostgresConfig(BaseModel):
     uri: str = os.getenv("POSTGRES_CONNECTION_STRING")

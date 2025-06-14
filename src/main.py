@@ -1,7 +1,9 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from dotenv import load_dotenv
+import logging
 
 from src.controllers.document_controller import router as document_router
 from src.controllers.chat_controller import router as chat_router
@@ -10,19 +12,31 @@ from src.controllers.health_controller import router as health_router
 from src.controllers.info_controller import router as info_router
 from src.controllers.auth_controller import router as auth_router
 from src.config.config import app_config
-import logging
+from src.database import init_db, close_db
 
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Initialize resources
+    logger.info("Starting up...")
+    await init_db()
+    logger.info("Database connection pool initialized")
+    yield
+    # Shutdown: Clean up resources
+    logger.info("Shutting down...")
+    await close_db()
+    logger.info("Database connection pool closed")
 
 app = FastAPI(
     title=app_config.info.title,
     description=app_config.info.description,
     version=app_config.info.version,
-    docs_url="/"
+    docs_url="/",
+    lifespan=lifespan
 )
 
 
@@ -44,7 +58,7 @@ app.include_router(auth_router, prefix="/admin")
 
 if __name__ == "__main__":
     uvicorn.run(
-        "main:app", 
+        "src.main:app", 
         host="0.0.0.0", 
         port=app_config.port,
         reload=True,
