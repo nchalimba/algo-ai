@@ -3,13 +3,19 @@ import logging
 import psycopg_pool
 from psycopg_pool import AsyncConnectionPool
 from contextlib import asynccontextmanager
-from typing import Optional, AsyncIterator, Any
+from typing import Optional, AsyncIterator, Any, AsyncGenerator
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from sqlmodel import SQLModel
 from src.config.config import app_config
 
 logger = logging.getLogger(__name__)
 
 # Connection pool (initialized on startup)
 pool: Optional[AsyncConnectionPool] = None
+# SQLAlchemy async engine and session maker
+async_engine = None
+async_session_maker = None
 
 # Connection settings
 CONNECTION_TIMEOUT = 5  # seconds
@@ -27,12 +33,13 @@ def get_pool() -> AsyncConnectionPool:
     return pool
 
 async def init_db():
-    """Initialize the database connection pool with enhanced settings."""
-    global pool
+    """Initialize the database connection pool with enhanced settings and SQLAlchemy integration."""
+    global pool, async_engine, async_session_maker
     if pool is not None:
         return
 
     try:
+        # Initialize the connection pool
         pool = psycopg_pool.AsyncConnectionPool(
             conninfo=app_config.postgres.uri,
             min_size=1,
@@ -52,7 +59,51 @@ async def init_db():
         # Open the pool and test the connection
         await pool.open(wait=True)
         await _test_connection()
-        logger.info("Database connection pool initialized successfully")
+        
+        # Parse the connection string to extract components
+        from urllib.parse import urlparse, parse_qs, urlunparse
+        from urllib.parse import quote_plus
+        
+        # Parse the original URI
+        parsed = urlparse(app_config.postgres.uri)
+        
+        # Extract query parameters
+        query_params = parse_qs(parsed.query)
+        
+        # Remove sslmode from query params as it's not supported directly by asyncpg
+        ssl_mode = query_params.pop('sslmode', ['prefer'])[0]
+        
+        # Rebuild the query string without sslmode
+        new_query = '&'.join(
+            f"{k}={v[0]}" if v else k 
+            for k, v in query_params.items()
+        )
+        
+        # Rebuild the URL with the new query
+        clean_uri = urlunparse(parsed._replace(query=new_query))
+        
+        # Convert to SQLAlchemy async URL
+        db_url = clean_uri.replace('postgresql://', 'postgresql+asyncpg://', 1)
+        
+        # Initialize SQLAlchemy async engine with direct connection
+        async_engine = create_async_engine(
+            db_url,
+            pool_pre_ping=True,
+            echo=getattr(app_config.postgres, 'echo_sql', False),  # Default to False if not set
+            future=True,
+            connect_args={
+                'ssl': ssl_mode == 'require'  # Only set ssl=True if required
+            }
+        )
+        
+        # Create async session maker
+        async_session_maker = sessionmaker(
+            bind=async_engine,
+            class_=AsyncSession,
+            expire_on_commit=False
+        )
+        
+        logger.info("Database connection pool and SQLAlchemy engine initialized successfully")
         
     except Exception as e:
         logger.error(f"Failed to initialize database connection pool: {e}")
@@ -77,11 +128,36 @@ async def _test_connection():
 
 
 async def close_db():
-    """Close the database connection pool."""
-    global pool
-    if pool is not None:
+    """Close the database connection pool and SQLAlchemy engine."""
+    global pool, async_engine, async_session_maker
+    
+    # Close SQLAlchemy session maker
+    if async_session_maker:
+        await async_engine.dispose()
+        async_session_maker = None
+        logger.info("SQLAlchemy engine and session maker closed")
+    
+    # Close the connection pool
+    if pool:
         await pool.close()
         pool = None
+        logger.info("Database connection pool closed")
+
+
+async def create_tables():
+    """Create all tables defined in SQLModel metadata."""
+    from sqlmodel import SQLModel
+    from sqlalchemy.ext.asyncio import AsyncEngine
+    
+    if not async_engine:
+        await init_db()
+    
+    async with async_engine.begin() as conn:
+        # Create all tables
+        await conn.run_sync(SQLModel.metadata.create_all)
+    
+    logger.info("Database tables created successfully")
+
 
 @asynccontextmanager
 async def get_db_connection() -> AsyncIterator[Any]:

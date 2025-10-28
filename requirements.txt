@@ -24,3 +24,4 @@ psycopg-pool==3.2.4
 psycopg-binary==3.2.3
 pyjwt==2.10.1
 tavily-python==0.3.3
+sqlmodel==0.0.24
